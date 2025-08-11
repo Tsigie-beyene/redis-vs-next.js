@@ -74,6 +74,9 @@ export default function Payment() {
           <p className="text-gray-600 mt-2">
             {step === 1 ? 'Step 1: Enter payment details' : 'Step 2: Enter card information'}
           </p>
+          <p className="text-sm text-blue-600 mt-1">
+            Authenticated user session active
+          </p>
         </div>
 
         {/* Progress Bar */}

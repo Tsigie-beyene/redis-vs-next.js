@@ -1,65 +1,75 @@
+import { redirect } from 'next/navigation'
+import { getCurrentUser } from '@/app/actions/auth'
+import { redisClient } from '@/lib/db'
+import LogoutButton from '@/components/LogoutButton'
 import Link from 'next/link'
-import { client, getSession } from '@/lib/db'
 
 const getActiveSessions = async () => {
   try {
-    const keys = await client.keys('session:*')
-    const sessions = []
-    
-    for (const key of keys) {
-      const sessionId = key.replace('session:', '')
-      const sessionData = await getSession(sessionId)
-      if (sessionData) {
-        sessions.push({
-          sessionId,
-          ...sessionData
-        })
-      }
-    }
-    
-    return sessions
+    const keys = await redisClient.keys('session:*')
+    return keys.map(key => key.replace('session:', ''))
   } catch (error) {
-    console.error('Error fetching sessions:', error)
+    console.error('Error fetching active sessions:', error)
     return []
   }
 }
 
 const getRedisStats = async () => {
   try {
-    const sessionKeys = await client.keys('session:*')
-    const paymentKeys = await client.keys('payment:*')
+    const sessionKeys = await redisClient.keys('session:*')
+    const paymentKeys = await redisClient.keys('payment:*')
+    const userKeys = await redisClient.keys('user:*')
+    const tokenKeys = await redisClient.keys('token:*')
     
     return {
       activeSessions: sessionKeys.length,
       cachedPayments: paymentKeys.length,
-      totalKeys: sessionKeys.length + paymentKeys.length
+      registeredUsers: userKeys.length,
+      tokenSessions: tokenKeys.length,
+      totalKeys: sessionKeys.length + paymentKeys.length + userKeys.length + tokenKeys.length
     }
   } catch (error) {
     console.error('Error fetching Redis stats:', error)
-    return { activeSessions: 0, cachedPayments: 0, totalKeys: 0 }
+    return { activeSessions: 0, cachedPayments: 0, registeredUsers: 0, tokenSessions: 0, totalKeys: 0 }
   }
 }
 
 export default async function Home() {
-  const sessions = await getActiveSessions()
+  const user = await getCurrentUser()
+  
+  if (!user) {
+    redirect('/login')
+  }
+
   const stats = await getRedisStats()
+  const sessions = await getActiveSessions()
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className='text-5xl font-bold text-gray-900 mb-4'>
-            🔐 Redis Payment Gateway Demo
-          </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Secure payment processing with Redis caching and encrypted session management. 
-            No sensitive data stored in browser or URLs.
-          </p>
+        {/* Header with User Info */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className='text-4xl font-bold text-gray-900 mb-2'>
+              🔐 Redis Payment Gateway Demo
+            </h1>
+            <p className="text-gray-600">
+              Welcome back, <span className="font-semibold text-blue-600">{user.username}</span>!
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm text-gray-600">Last login</p>
+              <p className="text-sm font-medium text-gray-900">
+                {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'First time'}
+              </p>
+            </div>
+            <LogoutButton />
+          </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
           <div className="bg-white rounded-lg p-6 shadow-lg border border-gray-200">
             <div className="flex items-center">
               <div className="p-3 bg-blue-100 rounded-full">
@@ -90,9 +100,23 @@ export default async function Home() {
 
           <div className="bg-white rounded-lg p-6 shadow-lg border border-gray-200">
             <div className="flex items-center">
-              <div className="p-3 bg-purple-100 rounded-full">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+              <div className="p-3 bg-indigo-100 rounded-full">
+                <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Token Sessions</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.tokenSessions}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg p-6 shadow-lg border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-3 bg-orange-100 rounded-full">
+                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8 1.79 8 4" />
                 </svg>
               </div>
               <div className="ml-4">
@@ -119,6 +143,12 @@ export default async function Home() {
               📊 Check Payment Status
             </Link>
           )}
+          <Link 
+            href="/token" 
+            className="bg-purple-600 text-white px-8 py-4 rounded-lg hover:bg-purple-700 transition-colors duration-200 font-semibold text-lg shadow-lg"
+          >
+            🔑 Token Management
+          </Link>
         </div>
 
         {/* Guidance when no sessions */}
@@ -194,30 +224,27 @@ export default async function Home() {
           <div className="bg-white rounded-lg p-8 shadow-lg border border-gray-200">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">📋 Active Payment Sessions</h2>
             <div className="grid gap-4">
-              {sessions.map((session) => (
+              {sessions.map((sessionId) => (
                 <div 
-                  key={session.sessionId} 
+                  key={sessionId} 
                   className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors duration-200"
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-sm text-gray-500">Session ID: {session.sessionId.slice(0, 8)}...</p>
-                      <p className="font-medium text-gray-900">
-                        {session.amount} {session.currency}
-                      </p>
-                      <p className="text-sm text-gray-600">{session.description}</p>
-                      <span className={`inline-block px-2 py-1 text-xs rounded-full ${
-                        session.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        session.status === 'failed' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {session.status}
+                      <p className="text-sm text-gray-500">Session ID: {sessionId.slice(0, 8)}...</p>
+                      <p className="font-medium text-gray-900">Active Payment Session</p>
+                      <p className="text-sm text-gray-600">Session data stored in Redis</p>
+                      <span className="inline-block px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                        active
                       </span>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-gray-500">
-                        {new Date(session.timestamp).toLocaleString()}
-                      </p>
+                      <Link 
+                        href={`/status?sessionId=${sessionId}`}
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      >
+                        View Details →
+                      </Link>
                     </div>
                   </div>
                 </div>
