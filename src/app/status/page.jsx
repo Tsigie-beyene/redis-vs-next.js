@@ -10,6 +10,8 @@ export default function Status() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [clearing, setClearing] = useState(false)
+  const [availableSessions, setAvailableSessions] = useState([])
+  const [loadingSessions, setLoadingSessions] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get('sessionId')
@@ -18,10 +20,25 @@ export default function Status() {
     if (sessionId) {
       checkPaymentStatus()
     } else {
-      setError('No session ID provided')
-      setLoading(false)
+      // If no session ID, load available sessions
+      loadAvailableSessions()
     }
   }, [sessionId])
+
+  async function loadAvailableSessions() {
+    setLoadingSessions(true)
+    try {
+      // This would typically call an API to get available sessions
+      // For demo purposes, we'll show a message and redirect option
+      setLoading(false)
+    } catch (error) {
+      console.error('Error loading sessions:', error)
+      setError('Failed to load available sessions')
+      setLoading(false)
+    } finally {
+      setLoadingSessions(false)
+    }
+  }
 
   async function checkPaymentStatus() {
     try {
@@ -70,6 +87,71 @@ export default function Status() {
     )
   }
 
+  // Show session selection when no sessionId is provided
+  if (!sessionId) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="mb-8">
+            <Link href="/" className="text-blue-600 hover:text-blue-700 mb-4 inline-block">
+              ← Back to Dashboard
+            </Link>
+            <h1 className="text-3xl font-bold text-gray-900">📊 Payment Status</h1>
+            <p className="text-gray-600 mt-2">Select a payment session to check status</p>
+          </div>
+
+          <div className="bg-white rounded-lg p-8 shadow-lg border border-gray-200">
+            <div className="text-center">
+              <div className="text-blue-500 text-6xl mb-4">🔍</div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">No Active Session Selected</h2>
+              <p className="text-gray-600 mb-6">
+                To check payment status, you need to either:
+              </p>
+              
+              <div className="space-y-4 mb-8">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-blue-900 mb-2">Option 1: Start a New Payment</h3>
+                  <p className="text-blue-700 text-sm mb-3">
+                    Create a new payment session and then check its status
+                  </p>
+                  <Link 
+                    href="/payment" 
+                    className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    Start New Payment
+                  </Link>
+                </div>
+
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-green-900 mb-2">Option 2: Check Dashboard</h3>
+                  <p className="text-green-700 text-sm mb-3">
+                    View active sessions on the dashboard
+                  </p>
+                  <Link 
+                    href="/" 
+                    className="inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
+                  >
+                    Go to Dashboard
+                  </Link>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <h3 className="font-semibold text-yellow-900 mb-2">💡 How It Works</h3>
+                <p className="text-yellow-800 text-sm">
+                  <strong>Step 1:</strong> Start a payment from the dashboard<br/>
+                  <strong>Step 2:</strong> Complete the payment process<br/>
+                  <strong>Step 3:</strong> You'll be automatically redirected to the status page<br/>
+                  <strong>Step 4:</strong> Or manually check status using the session ID
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   if (error) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
@@ -79,12 +161,21 @@ export default function Status() {
               <div className="text-red-500 text-6xl mb-4">❌</div>
               <h1 className="text-2xl font-bold text-gray-900 mb-4">Payment Status Error</h1>
               <p className="text-gray-600 mb-6">{error}</p>
-              <Link 
-                href="/" 
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-              >
-                Back to Dashboard
-              </Link>
+              <div className="space-y-3">
+                <Link 
+                  href="/" 
+                  className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                >
+                  Back to Dashboard
+                </Link>
+                <br/>
+                <Link 
+                  href="/payment" 
+                  className="inline-block bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200"
+                >
+                  Start New Payment
+                </Link>
+              </div>
             </div>
           </div>
         </div>

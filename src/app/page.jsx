@@ -111,13 +111,28 @@ export default async function Home() {
           >
             💳 Start New Payment
           </Link>
-          <Link 
-            href="/status" 
-            className="bg-green-600 text-white px-8 py-4 rounded-lg hover:bg-green-700 transition-colors duration-200 font-semibold text-lg shadow-lg"
-          >
-            📊 Check Payment Status
-          </Link>
+          {sessions.length > 0 && (
+            <Link 
+              href="/status" 
+              className="bg-green-600 text-white px-8 py-4 rounded-lg hover:bg-green-700 transition-colors duration-200 font-semibold text-lg shadow-lg"
+            >
+              📊 Check Payment Status
+            </Link>
+          )}
         </div>
+
+        {/* Guidance when no sessions */}
+        {sessions.length === 0 && (
+          <div className="text-center mb-8">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 max-w-2xl mx-auto">
+              <h3 className="font-semibold text-blue-900 mb-2">💡 Getting Started</h3>
+              <p className="text-blue-700 text-sm">
+                To see payment status checking in action, start a new payment first. 
+                After completing a payment, you'll be able to check its status and see Redis caching at work.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Security Features */}
         <div className="bg-white rounded-lg p-8 shadow-lg border border-gray-200 mb-8">
