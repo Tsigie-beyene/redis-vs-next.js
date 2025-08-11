@@ -1,90 +1,219 @@
 import Link from 'next/link'
-import { client } from '@/lib/db'
+import { client, getSession } from '@/lib/db'
 
-const getBooks = async () => {
+const getActiveSessions = async () => {
   try {
-    const keys = await client.keys('book:*')
-    const books = []
+    const keys = await client.keys('session:*')
+    const sessions = []
     
     for (const key of keys) {
-      const book = await client.hGetAll(key)
-      if (book.title && book.author) {
-        books.push({
-          id: key.replace('book:', ''),
-          ...book
+      const sessionId = key.replace('session:', '')
+      const sessionData = await getSession(sessionId)
+      if (sessionData) {
+        sessions.push({
+          sessionId,
+          ...sessionData
         })
       }
     }
     
-    return books
+    return sessions
   } catch (error) {
-    console.error('Error fetching books:', error)
+    console.error('Error fetching sessions:', error)
     return []
   }
 }
 
+const getRedisStats = async () => {
+  try {
+    const sessionKeys = await client.keys('session:*')
+    const paymentKeys = await client.keys('payment:*')
+    
+    return {
+      activeSessions: sessionKeys.length,
+      cachedPayments: paymentKeys.length,
+      totalKeys: sessionKeys.length + paymentKeys.length
+    }
+  } catch (error) {
+    console.error('Error fetching Redis stats:', error)
+    return { activeSessions: 0, cachedPayments: 0, totalKeys: 0 }
+  }
+}
+
 export default async function Home() {
-  const books = await getBooks()
+  const sessions = await getActiveSessions()
+  const stats = await getRedisStats()
 
   return (
-    <main className="min-h-screen bg-blue-50 p-8">
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className='text-4xl font-bold text-gray-900'>Books on Redis!</h1>
+        <div className="text-center mb-12">
+          <h1 className='text-5xl font-bold text-gray-900 mb-4'>
+            🔐 Redis Payment Gateway Demo
+          </h1>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Secure payment processing with Redis caching and encrypted session management. 
+            No sensitive data stored in browser or URLs.
+          </p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div className="bg-white rounded-lg p-6 shadow-lg border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-3 bg-blue-100 rounded-full">
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Active Sessions</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.activeSessions}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg p-6 shadow-lg border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-3 bg-green-100 rounded-full">
+                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Cached Payments</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.cachedPayments}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg p-6 shadow-lg border border-gray-200">
+            <div className="flex items-center">
+              <div className="p-3 bg-purple-100 rounded-full">
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                </svg>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Total Redis Keys</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalKeys}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-center gap-6 mb-12">
           <Link 
-            href="/create" 
-            className="bg-blue-500 text-white px-6 py-3 rounded-md hover:bg-blue-600 transition-colors duration-200 font-medium"
+            href="/payment" 
+            className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-semibold text-lg shadow-lg"
           >
-            Add a new book
+            💳 Start New Payment
+          </Link>
+          <Link 
+            href="/status" 
+            className="bg-green-600 text-white px-8 py-4 rounded-lg hover:bg-green-700 transition-colors duration-200 font-semibold text-lg shadow-lg"
+          >
+            📊 Check Payment Status
           </Link>
         </div>
-        
-        {/* Books Grid */}
-        {books.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="text-gray-400 text-6xl mb-4">📚</div>
-            <p className="text-gray-600 text-xl mb-4">No books found</p>
-            <p className="text-gray-500">Add your first book to get started!</p>
+
+        {/* Security Features */}
+        <div className="bg-white rounded-lg p-8 shadow-lg border border-gray-200 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">🔒 Security Features</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-gray-900">AES-256 Encryption</h3>
+                  <p className="text-sm text-gray-500">All sensitive data encrypted before Redis storage</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-gray-900">No Local Storage</h3>
+                  <p className="text-sm text-gray-500">Zero sensitive data stored in browser</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-start">
+                <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-gray-900">Session Management</h3>
+                  <p className="text-sm text-gray-500">Secure server-side session handling</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-gray-900">Auto Expiry</h3>
+                  <p className="text-sm text-gray-500">Automatic cleanup of expired sessions</p>
+                </div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2">
-            {books.map((book) => (
-              <div 
-                key={book.id} 
-                className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm hover:shadow-md transition-shadow duration-200"
-              >
-                <h3 className="text-xl font-semibold text-gray-900 mb-3 line-clamp-2">
-                  {book.title}
-                </h3>
-                <p className="text-gray-600 mb-2 font-medium">
-                  By: {book.author}
-                </p>
-                {book.rating && (
-                  <div className="flex items-center mb-3">
-                    <span className="text-sm text-gray-500 mr-2">Rating:</span>
-                    <div className="flex items-center">
-                      <span className="text-sm font-medium text-gray-700">{book.rating}/10</span>
-                      
+        </div>
+        
+        {/* Active Sessions */}
+        {sessions.length > 0 ? (
+          <div className="bg-white rounded-lg p-8 shadow-lg border border-gray-200">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">📋 Active Payment Sessions</h2>
+            <div className="grid gap-4">
+              {sessions.map((session) => (
+                <div 
+                  key={session.sessionId} 
+                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors duration-200"
+                >
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-sm text-gray-500">Session ID: {session.sessionId.slice(0, 8)}...</p>
+                      <p className="font-medium text-gray-900">
+                        {session.amount} {session.currency}
+                      </p>
+                      <p className="text-sm text-gray-600">{session.description}</p>
+                      <span className={`inline-block px-2 py-1 text-xs rounded-full ${
+                        session.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        session.status === 'failed' ? 'bg-red-100 text-red-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {session.status}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">
+                        {new Date(session.timestamp).toLocaleString()}
+                      </p>
                     </div>
                   </div>
-                )}
-                {book.blurb && (
-                  <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
-                    {book.blurb}
-                  </p>
-                )}
-              </div>
-            ))}
+                </div>
+              ))}
+            </div>
           </div>
-        )}
-        
-        {/* Stats */}
-        {books.length > 0 && (
-          <div className="mt-12 text-center">
-            <p className="text-gray-500 text-sm">
-              Total books: {books.length}
-            </p>
+        ) : (
+          <div className="text-center py-16 bg-white rounded-lg shadow-lg border border-gray-200">
+            <div className="text-gray-400 text-6xl mb-4">💳</div>
+            <p className="text-gray-600 text-xl mb-4">No active payment sessions</p>
+            <p className="text-gray-500">Start a new payment to see Redis caching in action!</p>
           </div>
         )}
       </div>
